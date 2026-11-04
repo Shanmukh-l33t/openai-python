@@ -1,5 +1,13 @@
 # Changelog
 
+## [3.46.0](https://github.com/openai/openai-python/compare/v3.45.0...v3.46.0) (2026-11-04)
+
+
+### Features
+
+* **api:** add GPT-6 Rosalind to the model catalog ([#4243](https://github.com/openai/openai-python/issues/4243)) ([0f8e5f3](https://github.com/openai/openai-python/commit/0f8e5f382861120809b1d149a18c744f725746a0))
+* **api:** expand agent turn errors and image and audio options ([#4245](https://github.com/openai/openai-python/issues/4245)) ([1b2fb74](https://github.com/openai/openai-python/commit/1b2fb74d1ac88eca798a00d3e5c0789ab9e42833))
+
 ## [3.45.0](https://github.com/openai/openai-python/compare/v3.44.0...v3.45.0) (2026-11-03)
 
 
