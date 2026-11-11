@@ -44,6 +44,8 @@ class Stream(Generic[_T]):
         self._options = options
         self._decoder = client._make_sse_decoder()
         self._iterator = self.__stream__()
+        # set to True when the stream terminates cleanly via the `[DONE]` sentinel
+        self._terminated = False
 
     def __next__(self) -> _T:
         return self._iterator.__next__()
@@ -69,6 +71,7 @@ class Stream(Generic[_T]):
         try:
             for sse in iterator:
                 if sse.data.startswith("[DONE]"):
+                    self._terminated = True
                     break
 
                 # we have to special case the Assistants `thread.` events since we won't have an "event" key in the data
@@ -158,6 +161,8 @@ class AsyncStream(Generic[_T]):
         self._options = options
         self._decoder = client._make_sse_decoder()
         self._iterator = self.__stream__()
+        # set to True when the stream terminates cleanly via the `[DONE]` sentinel
+        self._terminated = False
 
     async def __anext__(self) -> _T:
         return await self._iterator.__anext__()
@@ -189,6 +194,7 @@ class AsyncStream(Generic[_T]):
                     # it would add unnecessary latency after [DONE].
                     if response.http_version == "HTTP/1.1":
                         await drain_response_async(response)
+                    self._terminated = True
                     break
 
                 # we have to special case the Assistants `thread.` events since we won't have an "event" key in the data

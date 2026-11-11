@@ -99,6 +99,10 @@ class ChatCompletionStream(Generic[ResponseFormatT]):
         by the API.
         """
         self.until_done()
+        if not self._raw_stream._terminated:
+            raise RuntimeError(
+                "Didn't receive a `[DONE]` event - the stream ended prematurely (e.g. early EOF or connection close) so the accumulated completion may be incomplete."
+            )
         return self._state.get_final_completion()
 
     def until_done(self) -> Self:
@@ -222,6 +226,10 @@ class AsyncChatCompletionStream(Generic[ResponseFormatT]):
         by the API.
         """
         await self.until_done()
+        if not self._raw_stream._terminated:
+            raise RuntimeError(
+                "Didn't receive a `[DONE]` event - the stream ended prematurely (e.g. early EOF or connection close) so the accumulated completion may be incomplete."
+            )
         return self._state.get_final_completion()
 
     async def until_done(self) -> Self:
