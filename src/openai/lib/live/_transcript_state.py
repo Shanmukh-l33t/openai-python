@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import math
 import itertools
-from typing import Callable
+from typing import Callable, Sequence
 from dataclasses import fields, dataclass
 from typing_extensions import Literal, TypeGuard
 
@@ -16,9 +16,20 @@ _MAX_SAFE_INTEGER = 9_007_199_254_740_991
 _GROUPER_IDS = itertools.count()
 
 
+def validated_acknowledgments(value: Sequence[str] | None) -> tuple[str, ...]:
+    if value is None:
+        return ()
+    if isinstance(value, (str, bytes, bytearray, memoryview)) or not isinstance(value, Sequence):
+        raise OpenAIError("additional_acknowledgments must be a sequence of strings")
+    if not all(isinstance(phrase, str) for phrase in value):
+        raise OpenAIError("additional_acknowledgments must be a sequence of strings")
+    return tuple(value)
+
+
 def validated_options(options: TranscriptGrouperOptions) -> TranscriptGrouperOptions:
     for field in fields(options):
         if field.name == "additional_acknowledgments":
+            validated_acknowledgments(options.additional_acknowledgments)
             continue
         value = getattr(options, field.name)
         if isinstance(value, bool) or not isinstance(value, (int, float)) or not 0 <= value <= MAX_TIMEOUT_MS:

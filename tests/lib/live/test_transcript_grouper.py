@@ -24,6 +24,56 @@ def test_invalid_options(
         factory(**{key: cast(Any, value)})
 
 
+@pytest.mark.parametrize("factory", [TranscriptGrouper, AsyncTranscriptGrouper])
+@pytest.mark.parametrize(
+    "value",
+    [
+        "cool",
+        "",
+        b"cool",
+        b"",
+        bytearray(b"cool"),
+        memoryview(b"cool"),
+        0,
+        False,
+        123,
+        {},
+        {"cool"},
+        [123],
+        [None],
+        [b"cool"],
+    ],
+)
+def test_invalid_additional_acknowledgments(
+    factory: type[TranscriptGrouper] | type[AsyncTranscriptGrouper], value: object
+) -> None:
+    with pytest.raises(OpenAIError, match="sequence of strings"):
+        factory(additional_acknowledgments=cast(Any, value))
+
+
+@pytest.mark.parametrize("factory", [TranscriptGrouper, AsyncTranscriptGrouper])
+@pytest.mark.parametrize("value", [None, (), [], ["cool"], ("cool", "okay")])
+def test_additional_acknowledgments_accepts_sequences(
+    factory: type[TranscriptGrouper] | type[AsyncTranscriptGrouper], value: object
+) -> None:
+    factory(additional_acknowledgments=cast(Any, value))
+
+
+@pytest.mark.parametrize("async_mode", [False, True])
+async def test_additional_acknowledgments_suppresses_whole_phrase(async_mode: bool) -> None:
+    texts: list[str] = []
+    for acknowledgments in (["cool"], None):
+        clock = FakeClock()
+        grouper = (AsyncClockGrouper if async_mode else ClockGrouper)(clock, acknowledgments)
+        recording = Recording(grouper, clock)
+        await push(grouper, text("Here is my question", item_id="u1", speaker="user"))
+        await push(grouper, text("cool", start=300, end=500, item_id="a1"))
+        await push(grouper, text("about the API.", start=600, end=1200, item_id="u2", speaker="user"))
+        await close(grouper)
+        texts.append(" | ".join(item.segment.text for item in recording.closed))
+    assert texts == ["Here is my question about the API.", "Here is my question about the API. | cool"]
+
+
 @pytest.mark.parametrize(
     "field,value",
     [

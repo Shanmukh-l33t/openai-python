@@ -14,7 +14,7 @@ from ._types import GroupingUpdate, TranscriptGrouperOptions
 from ._listeners import TranscriptListeners
 from ...types.live import ServerEvent
 from ..._exceptions import OpenAIError
-from ._transcript_state import TranscriptState
+from ._transcript_state import TranscriptState, validated_acknowledgments
 
 _ReturnT = TypeVar("_ReturnT")
 
@@ -73,7 +73,7 @@ def _options(
         2000 if assistant_silence_ms is None else assistant_silence_ms,
         1000 if backchannel_max_duration_ms is None else backchannel_max_duration_ms,
         2000 if backchannel_isolation_ms is None else backchannel_isolation_ms,
-        tuple(additional_acknowledgments or ()),
+        validated_acknowledgments(additional_acknowledgments),
     )
 
 
