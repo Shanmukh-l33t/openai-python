@@ -2692,6 +2692,45 @@ class TestAsyncOpenAI:
         assert request.url == "https://myapi.com/foo"
         await client.close()
 
+    @pytest.mark.parametrize(
+        "base,url,params,expected",
+        [
+            (
+                "http://localhost:5000/custom/path?tenant=acme",
+                "/foo",
+                {},
+                "http://localhost:5000/custom/path/foo?tenant=acme",
+            ),
+            (
+                "http://localhost:5000/custom/path?tenant=acme",
+                "/foo?bar=baz",
+                {},
+                "http://localhost:5000/custom/path/foo?tenant=acme&bar=baz",
+            ),
+            (
+                "http://localhost:5000/custom/path?tenant=acme",
+                "/foo?bar=baz",
+                {"limit": "5"},
+                "http://localhost:5000/custom/path/foo?tenant=acme&bar=baz&limit=5",
+            ),
+            ("http://localhost:5000/custom/path", "/foo", {}, "http://localhost:5000/custom/path/foo"),
+        ],
+        ids=["base query", "relative query", "request params", "no base query"],
+    )
+    async def test_relative_request_url_preserves_base_query(
+        self, base: str, url: str, params: dict[str, str], expected: str
+    ) -> None:
+        client = AsyncOpenAI(
+            base_url=base,
+            api_key=api_key,
+            admin_api_key=admin_api_key,
+            _strict_response_validation=True,
+        )
+        request = client._build_request(FinalRequestOptions(method="get", url=url, params=params))
+        assert request.url == expected
+
+        await client.close()
+
     async def test_copied_client_does_not_close_http(self) -> None:
         test_client = AsyncOpenAI(
             base_url=base_url, api_key=api_key, admin_api_key=admin_api_key, _strict_response_validation=True
