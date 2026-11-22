@@ -584,7 +584,7 @@ def async_stream(
 
     tools = _make_tools(tools)
     if len(new_response_args_names) > 0:
-        if isinstance(input, NotGiven):
+        if not is_given(input):
             raise ValueError("input must be provided when creating a new response")
 
         if not is_given(model):
@@ -647,7 +647,7 @@ def async_stream(
             starting_after=None,
         )
     else:
-        if isinstance(response_id, Omit):
+        if not is_given(response_id):
             raise ValueError("response_id must be provided when streaming an existing response")
 
         api_request = resource.retrieve(
