@@ -267,6 +267,8 @@ class BaseModel(pydantic.BaseModel):
             _fields_set = set()
 
         model_fields = get_model_fields(__cls)
+        # declared fields are keyed by python name, so their wire aliases must be tracked separately
+        consumed_keys: set[str] = set()
         for name, field in model_fields.items():
             key = field.alias
             if key is None or (key not in values and populate_by_name):
@@ -275,6 +277,7 @@ class BaseModel(pydantic.BaseModel):
             if key in values:
                 fields_values[name] = _construct_field(value=values[key], field=field, key=key)
                 _fields_set.add(name)
+                consumed_keys.add(key)
             else:
                 fields_values[name] = field_get_default(field)
 
@@ -282,7 +285,7 @@ class BaseModel(pydantic.BaseModel):
 
         _extra = {}
         for key, value in values.items():
-            if key not in model_fields:
+            if key not in consumed_keys and key not in model_fields:
                 parsed = construct_type(value=value, type_=extra_field_type) if extra_field_type is not None else value
 
                 if PYDANTIC_V1:

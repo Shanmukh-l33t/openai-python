@@ -182,6 +182,40 @@ def test_aliases() -> None:
     assert cast(Any, m.my_field) == {"hello": False}
 
 
+def test_construct_does_not_leak_consumed_alias_into_extras() -> None:
+    class Model(BaseModel):
+        async_: bool = Field(alias="async")
+        note: Optional[str] = None
+
+    # the populate_by_name equivalent for whichever pydantic version is installed
+    if PYDANTIC_V1:
+        Model.__config__.allow_population_by_field_name = True  # type: ignore[attr-defined]
+    else:
+        Model.model_config["populate_by_name"] = True
+
+    # populate_by_name path: the python name is consumed by the field, not collected as an extra
+    by_name = Model.construct(async_=True)
+    assert by_name.async_ is True
+    if not PYDANTIC_V1:
+        assert by_name.model_extra == {}
+
+    # the wire alias is consumed by the declared field, a genuine extra is kept
+    m = Model.construct(**{"async": True, "note": "n", "future": 1})
+    assert m.async_ is True
+    assert m.note == "n"
+    if not PYDANTIC_V1:
+        assert m.model_extra == {"future": 1}
+
+    # no duplicate keys, and no python name emitted next to the wire alias
+    assert m.to_json(indent=None).count('"async":') == 1
+    assert m.to_dict(use_api_names=False) == {"async_": True, "note": "n", "future": 1}
+
+    # a later mutation must win over any leftover extra value
+    m.async_ = False
+    assert m.to_dict()["async"] is False
+    assert m.to_json(indent=None).count('"async":false') == 1
+
+
 def test_validated_alias_keeps_wire_field_and_leaves_input_unchanged() -> None:
     class Model(BaseModel):
         enabled_: bool = Field(alias="enabled")
