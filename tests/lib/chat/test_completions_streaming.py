@@ -1060,6 +1060,47 @@ def test_stream_obfuscation_stays_on_raw_chunks(padding: tuple[str | None, str |
     assert "obfuscation" not in completion.to_json()
 
 
+def test_strict_tool_call_arguments_with_leading_whitespace() -> None:
+    class GetWeatherArgs(BaseModel):
+        city: str
+
+    state = ChatCompletionStreamState(input_tools=[openai.pydantic_function_tool(GetWeatherArgs)])
+
+    def chunk(delta: dict[str, Any]) -> ChatCompletionChunk:
+        return model_parse(
+            ChatCompletionChunk,
+            {
+                "id": "chatcmpl-test",
+                "object": "chat.completion.chunk",
+                "created": 0,
+                "model": "gpt-test",
+                "choices": [{"index": 0, "delta": delta, "finish_reason": None}],
+            },
+        )
+
+    state.handle_chunk(chunk({"role": "assistant"}))
+    # the API can stream the leading whitespace of the arguments as its own chunk
+    state.handle_chunk(
+        chunk(
+            {
+                "tool_calls": [
+                    {
+                        "index": 0,
+                        "id": "call_1",
+                        "type": "function",
+                        "function": {"name": "GetWeatherArgs", "arguments": " "},
+                    }
+                ]
+            }
+        )
+    )
+    state.handle_chunk(chunk({"tool_calls": [{"index": 0, "function": {"arguments": '{"city":"Paris"}'}}]}))
+
+    tool_calls = state.get_final_completion().choices[0].message.tool_calls
+    assert tool_calls is not None
+    assert tool_calls[0].function.parsed_arguments == GetWeatherArgs(city="Paris")
+
+
 @pytest.mark.respx2(base_url=base_url)
 def test_chat_completion_state_helper(client: OpenAI, respx2_mock: MockRouter, monkeypatch: pytest.MonkeyPatch) -> None:
     state = ChatCompletionStreamState()

@@ -455,6 +455,8 @@ class ChatCompletionStreamState(Generic[ResponseFormatT]):
                         input_tool
                         and input_tool.get("function", {}).get("strict")
                         and tool_call_snapshot.function.arguments
+                        # partial parsing fails on white-space
+                        and tool_call_snapshot.function.arguments.lstrip()
                     ):
                         tool_call_snapshot.function.parsed_arguments = from_json(
                             bytes(tool_call_snapshot.function.arguments, "utf-8"),
