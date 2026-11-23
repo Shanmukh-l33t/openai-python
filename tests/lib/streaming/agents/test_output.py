@@ -11,8 +11,9 @@ import pydantic
 from pydantic import Field, HttpUrl, BaseModel
 
 from openai import OpenAI, AsyncOpenAI, BadRequestError
-from openai._compat import PYDANTIC_V1
+from openai._compat import PYDANTIC_V1, model_parse
 from openai.lib.beta.agents import (
+    AgentTurnResult,
     AgentTurnResultError,
     AgentOutputParseError,
     function_tool,
@@ -20,6 +21,7 @@ from openai.lib.beta.agents import (
     pydantic_function_tool,
 )
 from openai.lib._parsing._responses import type_to_text_format_param
+from openai.types.beta.agents.sessions.turn import Turn
 from tests.lib.streaming.agents.test_results import ResultServer, server as server, message
 from tests.lib.streaming.agents.test_streams import EventBody, sdk as sdk, call, idle, turn_event
 
@@ -553,3 +555,11 @@ async def test_final_text_parts_are_parsed_independently(
     assert [
         [content.text for content in item.content if content.type == "output_text"] for item in raw.messages
     ] == parts
+
+
+@pytest.mark.parametrize("model", [str, dict, object])
+def test_parse_rejects_invalid_output_type_before_parsing(model: type[Any]) -> None:
+    # A caller-side type error is a configuration mistake, not malformed output.
+    result = AgentTurnResult(turn=model_parse(Turn, turn_event("completed")["turn"]), messages=[])
+    with pytest.raises(TypeError, match="Pydantic"):
+        result.parse(model)

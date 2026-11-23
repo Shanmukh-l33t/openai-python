@@ -31,8 +31,9 @@ class AgentTurnResult(Generic[OutputT]):
 
     def parse(self, output_type: type[ParseT]) -> AgentTurnResult[ParseT]:
         """Beta: parse a completed answer without changing its session configuration."""
+        # A caller-side type error must not be reported as malformed model output.
+        validate_output_type(output_type)
         try:
-            validate_output_type(output_type)
             parsed: ParseT | None = None
             found = False
             for message in self.messages:
