@@ -94,13 +94,18 @@ def _local_file(value: str | PathLike[str]) -> Path:
     return path
 
 
+def _reject_idempotency_key(options: _RequestOptions, defaults: Headers) -> None:
+    headers = {key.lower(): value for key, value in defaults.items()}
+    headers.update({key.lower(): value for key, value in (options["extra_headers"] or {}).items()})
+    if "idempotency-key" in headers and not isinstance(headers["idempotency-key"], Omit):
+        raise ValueError("One Idempotency-Key cannot be reused for multiple file uploads")
+
+
 def _prepare_selection(
     files: Mapping[str, str | PathLike[str]], options: _RequestOptions, defaults: Headers, stack: ExitStack
 ) -> list[tuple[str, Path, BinaryIO, int]]:
-    headers = {key.lower(): value for key, value in defaults.items()}
-    headers.update({key.lower(): value for key, value in (options["extra_headers"] or {}).items()})
-    if len(files) > 1 and "idempotency-key" in headers and not isinstance(headers["idempotency-key"], Omit):
-        raise ValueError("One Idempotency-Key cannot be reused for multiple file uploads")
+    if len(files) > 1:
+        _reject_idempotency_key(options, defaults)
     entries = list(files.items())
     destinations = {_destination(destination) for destination, _ in entries}
     for destination in destinations:
@@ -264,6 +269,7 @@ def upload(
     if not environment_id:
         raise ValueError("Expected a non-empty environment_id")
     destination = _destination(path)
+    _reject_idempotency_key(options, resource._client.default_headers)  # upload and staging are two POSTs
     with _upload_content(file) as content:
         uploaded = resource._client.files.create(file=content, purpose="user_data", **options)
     try:
@@ -282,6 +288,7 @@ async def async_upload(
     if not environment_id:
         raise ValueError("Expected a non-empty environment_id")
     destination = _destination(path)
+    _reject_idempotency_key(options, resource._client.default_headers)  # upload and staging are two POSTs
     original = file[1] if isinstance(file, tuple) else file
     if isinstance(original, PathLike):
         file = await run_sync(_snapshot_upload, file, abandon_on_cancel=True)

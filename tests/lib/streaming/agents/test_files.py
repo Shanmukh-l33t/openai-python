@@ -752,3 +752,20 @@ async def test_native_cancellation_keeps_opened_handles_owned_by_worker(
     assert len(handles) == 1
     assert handles[0].closed
     assert not server.requests
+
+
+@pytest.mark.parametrize("source", ["extra_headers", "client_default"])
+async def test_upload_rejects_idempotency_key_before_any_request(
+    sdk: OpenAI | AsyncOpenAI, server: FilesServer, source: str
+) -> None:
+    options: dict[str, Any] = {}
+    if source == "extra_headers":
+        options["extra_headers"] = {"idempotency-key": "synthetic"}
+    else:
+        sdk._custom_headers = {"Idempotency-Key": "synthetic"}
+    files = sdk.beta.agents.environments.files
+    with pytest.raises(ValueError, match="Idempotency-Key"):
+        result = files.upload("env_test", file=("source.txt", b"abc"), path="/workspace/source.txt", **options)
+        if isinstance(sdk, AsyncOpenAI):
+            await result
+    assert not server.requests
