@@ -36,8 +36,14 @@ def arguments(call: AgentFunctionCallItem) -> Dict[str, Any]:
 
 def result_event(call: AgentFunctionCallItem, output: ToolOutput) -> SessionInputParamAgentSessionInputToolResult:
     if isinstance(output, Mapping):
-        output = json.dumps(dict(output), separators=(",", ":"))
+        # allow_nan=False matches openapi_dumps: the value is serialized to a string here, so a
+        # NaN or Infinity would otherwise reach the wire as invalid JSON.
+        output = json.dumps(dict(output), separators=(",", ":"), allow_nan=False)
     # Materialize iterators here so serialization failures produce a failed tool result.
+    # Binary buffers are iterables of integers, and the content transform below would turn them
+    # into a list of byte values, so reject them the way `_tool_output` does.
+    if isinstance(output, (bytes, bytearray, memoryview)):
+        raise TypeError(f"Object of type {type(output).__name__} is not JSON serializable")
     if output is not None and not isinstance(output, str):
         output = list(output)
     # Use the same content normalization as events.create before checking JSON encoding.

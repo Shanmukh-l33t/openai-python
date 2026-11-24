@@ -303,6 +303,26 @@ async def test_non_finite_arguments_skip_handler(sdk: OpenAI | AsyncOpenAI, serv
     assert result["error"] == "Tool handler failed."
 
 
+@pytest.mark.parametrize(
+    "result",
+    [b"hello", bytearray(b"hi"), memoryview(b"mv"), {"score": float("nan")}, {"score": float("inf")}],
+    ids=["bytes", "bytearray", "memoryview", "nan", "inf"],
+)
+async def test_invalid_tool_output_reports_error(sdk: OpenAI | AsyncOpenAI, server: Server, result: object) -> None:
+    from openai.lib.beta.agents import AgentToolError
+
+    observed: list[AgentToolError] = []
+    server.body = EventBody([turn_event("created"), call(), turn_event("completed"), idle()])
+    await consume(
+        sdk, input="Hello", tool_handlers={"search": lambda _arguments: result}, on_tool_error=observed.append
+    )
+    assert len(observed) == 1
+    assert observed[0].stage == "output"
+    submitted = server.inputs()[1]
+    assert submitted["success"] is False
+    assert submitted["error"] == "Tool handler failed."
+
+
 async def test_handler_error_is_redacted(sdk: OpenAI | AsyncOpenAI, server: Server) -> None:
     def handler(_arguments: dict[str, object]) -> object:
         raise ValueError("synthetic-sensitive-value")
